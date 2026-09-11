@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.venv/
+.iosvenv/
+.buildozer/
+bin/
+ios_cloud_output/
+ipa_output/
+*.log
+.DS_Store
+ios_output/

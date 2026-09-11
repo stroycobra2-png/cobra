@@ -1,0 +1,11 @@
+12/D DIL PROGRAMI - ANDROID APK HIZLI KURULUM
+
+1) Once WSL_TEST.bat calistir.
+2) Linux komut testi basarisizsa WSL_UBUNTU_KUR.bat calistir.
+3) Windows yeniden baslatma isterse yeniden baslat.
+4) Ubuntu'yu Baslat menusunden bir kez ac ve Linux kullanici adi/sifre olustur.
+5) ANDROID_APK_OLUSTUR.bat calistir.
+6) Ilk derleme SDK/NDK indirecegi icin uzun surebilir.
+7) APK android_native\bin klasorunde olusur.
+
+Not: "where wsl" sonucunun cikmasi tek basina Ubuntu'nun kurulu oldugu anlamina gelmez.

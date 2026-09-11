@@ -1,0 +1,22 @@
+{
+  "name": "12/D Dil Programı",
+  "short_name": "12/D Dil",
+  "description": "A1-C2 İngilizce öğrenme ve öğretmen sınıf yönetimi",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#070b14",
+  "theme_color": "#090d18",
+  "lang": "tr",
+  "icons": [
+    {
+      "src": "/static/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/static/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

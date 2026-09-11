@@ -1,0 +1,43 @@
+12/D DIL PROGRAMI - iPHONE CLOUD BUILD
+======================================
+
+Bu klasor Windows kullanicilari icin iPhone build rehberidir.
+
+ONEMLI:
+Gercek GitHub Actions workflow dosyalari paket kokundeki:
+
+.github/workflows/ios-cloud-build.yml
+.github/workflows/ios-signed-ipa.yml
+
+konumundadir.
+
+BUNLARI BASKA KLASORE TASIMA.
+GitHub Actions'in workflow'lari algilayabilmesi icin .github/workflows
+konumunda kalmalari gerekir.
+
+HIZLI KULLANIM
+--------------
+1. Ana klasordeki IPHONE_BUILD_WINDOWS.bat dosyasini ac.
+2. "iOS workflow dosyalarini kontrol et" secenegini kullan.
+3. GitHub'da yeni repository olustur.
+4. Paketteki TUM dosyalari repository'ye yukle.
+5. GitHub > Actions > iOS Cloud Build > Run workflow.
+6. Imzasiz Xcode/Simulator build sonucunu Artifacts alanindan indir.
+
+GERCEK IPA
+----------
+GitHub > Actions > iOS Signed IPA
+
+Apple signing secrets gerektirir:
+- IOS_CERTIFICATE_P12_BASE64
+- IOS_CERTIFICATE_PASSWORD
+- IOS_PROVISIONING_PROFILE_BASE64
+- IOS_TEAM_ID
+- IOS_KEYCHAIN_PASSWORD (opsiyonel)
+
+Sertifika, profil veya sifreleri normal GitHub dosyalarina koyma.
+Bunlari sadece Repository > Settings > Secrets and variables > Actions
+bolumune ekle.
+
+Bundle ID:
+tr.okul.dilprogrami12d

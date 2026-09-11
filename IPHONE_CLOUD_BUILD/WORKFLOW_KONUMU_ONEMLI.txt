@@ -1,0 +1,6 @@
+Bu klasordeki ORNEK_*.yml dosyalari sadece kolay goruntuleme icindir.
+
+GitHub'in calistirdigi asil dosyalar:
+.github/workflows/
+
+Lutfen asil workflow dosyalarini tasimayin veya silmeyin.
