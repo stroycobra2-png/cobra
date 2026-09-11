@@ -121,7 +121,17 @@ $skipDirs = @('.git','.buildozer','__pycache__','.venv','.iosvenv','.buildvenv',
 $skipNames = @('android_build.log','mobile_error.log','ios_build.log')
 
 Write-Host '[3/7] Proje dosyalari GitHub icin hazirlaniyor...'
-$AllFiles = Get-ChildItem -Path $Root -Recurse -File | Where-Object {
+
+$ExpectedCloudWorkflow = Join-Path $Root '.github\workflows\ios-cloud-build.yml'
+$ExpectedSignedWorkflow = Join-Path $Root '.github\workflows\ios-signed-ipa.yml'
+if (-not (Test-Path $ExpectedCloudWorkflow)) {
+    throw 'Yerel .github/workflows/ios-cloud-build.yml bulunamadi.'
+}
+if (-not (Test-Path $ExpectedSignedWorkflow)) {
+    throw 'Yerel .github/workflows/ios-signed-ipa.yml bulunamadi.'
+}
+Write-Host '      Yerel iOS workflow dosyalari mevcut.' -ForegroundColor Green
+$AllFiles = Get-ChildItem -Path $Root -Recurse -File -Force | Where-Object {
     $full = $_.FullName
     $relative = ($full.Substring($Root.Length) -replace '^[\\/]+','')
     $parts = $relative -split '[\\/]'
@@ -258,19 +268,51 @@ if ($Branch -ne $DefaultBranch) {
 }
 
 $WorkflowPath = ".github/workflows/$WorkflowFile"
-$EncodedWorkflowPath = $WorkflowPath -replace '/', '%2F'
 
-# First verify the file itself really exists on the default branch.
-$WorkflowContent = Invoke-GH -Method GET -Uri "$RepoApi/contents/$EncodedWorkflowPath?ref=$Branch" -Allow404
+# GitHub Contents API nested paths use normal slash-separated paths.
+# Do NOT encode the "/" separators as %2F; that can make the route return 404.
+$WorkflowContentUri = "$RepoApi/contents/$WorkflowPath" + "?ref=$Branch"
+$WorkflowContent = Invoke-GH -Method GET -Uri $WorkflowContentUri -Allow404
+
 if ($null -eq $WorkflowContent) {
-    Write-Host ''
-    Write-Host '[HATA] iOS workflow dosyasi GitHub default branch icinde bulunamadi.' -ForegroundColor Red
-    Write-Host ('Beklenen dosya: ' + $WorkflowPath)
-    Write-Host ('Branch: ' + $Branch)
-    Write-Host 'Projeyi yeniden yuklemek icin BAT dosyasini tekrar calistir.'
-    exit 40
+    # Fallback: verify the path directly from the branch Git tree. This avoids
+    # false negatives from the Contents route immediately after a fresh commit.
+    $BranchRef = Invoke-GH -Method GET -Uri "$RepoApi/git/ref/heads/$Branch" -Allow404
+    $WorkflowInTree = $false
+
+    if ($null -ne $BranchRef) {
+        $BranchCommit = Invoke-GH -Method GET -Uri "$RepoApi/git/commits/$($BranchRef.object.sha)"
+        $RecursiveTree = Invoke-GH -Method GET -Uri "$RepoApi/git/trees/$($BranchCommit.tree.sha)?recursive=1"
+        $WorkflowInTree = @(
+            $RecursiveTree.tree |
+            Where-Object { $_.path -eq $WorkflowPath -and $_.type -eq 'blob' } |
+            Select-Object -First 1
+        ).Count -gt 0
+    }
+
+    if (-not $WorkflowInTree) {
+        Write-Host ''
+        Write-Host '[HATA] iOS workflow dosyasi GitHub default branch icinde gercekten bulunamadi.' -ForegroundColor Red
+        Write-Host ('Beklenen dosya: ' + $WorkflowPath)
+        Write-Host ('Branch: ' + $Branch)
+        Write-Host ''
+        Write-Host 'Yerel proje icinde workflow kontrol ediliyor...'
+        $LocalWorkflow = Join-Path $Root $WorkflowPath
+        if (Test-Path $LocalWorkflow) {
+            Write-Host 'Yerel workflow VAR fakat GitHub tree icinde yok.' -ForegroundColor Yellow
+            Write-Host 'BAT dosyasini tekrar calistir; dosya tekrar yuklenecek.'
+        } else {
+            Write-Host 'Yerel workflow da YOK.' -ForegroundColor Red
+            Write-Host 'Bu paketin .github/workflows klasoru eksik/cikartilirken kaybolmus olabilir.'
+        }
+        exit 40
+    }
+
+    Write-Host ('      Workflow Git tree icinde bulundu: ' + $WorkflowPath) -ForegroundColor Green
 }
-Write-Host ('      Workflow dosyasi bulundu: ' + $WorkflowPath) -ForegroundColor Green
+else {
+    Write-Host ('      Workflow dosyasi bulundu: ' + $WorkflowPath) -ForegroundColor Green
+}
 
 # GitHub can take a short time to index a newly committed workflow. Poll the
 # Actions workflow list and use the numeric workflow id instead of relying on

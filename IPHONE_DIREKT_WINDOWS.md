@@ -94,3 +94,11 @@ tarafından indekslenmemiş olabilir. Yeni builder workflow'u önce default bran
 workflow ID ile tetikler.
 
 Token için `Actions: Read and write` gereklidir.
+
+
+## v5.3.12 — Workflow path düzeltmesi
+
+Önceki sürüm `.github/workflows/ios-cloud-build.yml` yolundaki slash karakterlerini
+`%2F` olarak kodladığı için GitHub Contents API yanlış 404 verebiliyordu.
+Yeni sürüm nested yolu normal slash ile sorgular ve ayrıca Git tree üzerinden
+ikinci kez doğrular.

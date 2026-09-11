@@ -398,3 +398,11 @@ Artık:
 - Workflow dosya adı yerine numeric workflow ID ile tetiklenir.
 - Disabled workflow otomatik etkinleştirilmeye çalışılır.
 - Actions API izni yoksa doğrudan Türkçe hata gösterilir.
+
+
+## v5.3.12 — iPhone Workflow Path Fix
+
+- GitHub Contents API için `.github/workflows/...` yolu artık slash karakterleri `%2F` yapılmadan kullanılır.
+- Contents API geçici olarak 404 dönerse recursive Git tree üzerinden ikinci doğrulama yapılır.
+- Windows dosya taraması `Get-ChildItem -Force` kullanır; `.github` klasörü kesin dahil edilir.
+- Upload başlamadan önce iki iOS workflow dosyasının yerelde bulunduğu doğrulanır.
