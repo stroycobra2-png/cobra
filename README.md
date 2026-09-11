@@ -388,3 +388,13 @@ Artık:
 - `$TreeEntries = @()` saf PowerShell array kullanır.
 - Tree girdileri `+= @{ ... }` ile eklenir.
 - GitHub tree body doğrudan `$TreeEntries` dizisini kullanır.
+
+
+## v5.3.11 — iPhone Workflow 404 Fix
+
+- Upload sonrası GitHub repository metadata yeniden okunur.
+- Workflow dosyasının default branch'te bulunduğu doğrulanır.
+- GitHub'ın yeni workflow'u indekslemesi 90 saniyeye kadar beklenir.
+- Workflow dosya adı yerine numeric workflow ID ile tetiklenir.
+- Disabled workflow otomatik etkinleştirilmeye çalışılır.
+- Actions API izni yoksa doğrudan Türkçe hata gösterilir.

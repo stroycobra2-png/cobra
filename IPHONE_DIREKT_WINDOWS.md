@@ -84,3 +84,13 @@ ayrı tutuluyor.
 Windows PowerShell 5.1'de GitHub tree oluştururken görülen
 `Bağımsız değişken türleri eşleşmiyor` hatası giderildi.
 .NET Generic List kaldırıldı ve saf PowerShell array kullanılmaya başlandı.
+
+
+## v5.3.11 — GitHub Actions 404 düzeltmesi
+
+Proje GitHub'a yüklendikten hemen sonra workflow dosyası henüz GitHub Actions
+tarafından indekslenmemiş olabilir. Yeni builder workflow'u önce default branch
+üzerinde doğrular, Actions API'de görünmesini bekler ve ardından numeric
+workflow ID ile tetikler.
+
+Token için `Actions: Read and write` gereklidir.

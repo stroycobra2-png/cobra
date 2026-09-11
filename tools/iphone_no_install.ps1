@@ -244,17 +244,139 @@ if ($Mode -eq 'signed') {
     Write-Host '[4/7] Cloud build modu hazir.'
 }
 
-Write-Host '[5/7] GitHub macOS iPhone build baslatiliyor...'
+Write-Host '[5/7] GitHub macOS iPhone build hazirlaniyor...'
+
+# Refresh repository metadata after the commit. workflow_dispatch only works
+# when the workflow file exists on the repository default branch.
+$Repo = Invoke-GH -Method GET -Uri $RepoApi
+$DefaultBranch = $Repo.default_branch
+if ([string]::IsNullOrWhiteSpace($DefaultBranch)) { $DefaultBranch = $Branch }
+
+if ($Branch -ne $DefaultBranch) {
+    Write-Host ('      Build branch default branch ile eslestiriliyor: ' + $DefaultBranch) -ForegroundColor Yellow
+    $Branch = $DefaultBranch
+}
+
+$WorkflowPath = ".github/workflows/$WorkflowFile"
+$EncodedWorkflowPath = $WorkflowPath -replace '/', '%2F'
+
+# First verify the file itself really exists on the default branch.
+$WorkflowContent = Invoke-GH -Method GET -Uri "$RepoApi/contents/$EncodedWorkflowPath?ref=$Branch" -Allow404
+if ($null -eq $WorkflowContent) {
+    Write-Host ''
+    Write-Host '[HATA] iOS workflow dosyasi GitHub default branch icinde bulunamadi.' -ForegroundColor Red
+    Write-Host ('Beklenen dosya: ' + $WorkflowPath)
+    Write-Host ('Branch: ' + $Branch)
+    Write-Host 'Projeyi yeniden yuklemek icin BAT dosyasini tekrar calistir.'
+    exit 40
+}
+Write-Host ('      Workflow dosyasi bulundu: ' + $WorkflowPath) -ForegroundColor Green
+
+# GitHub can take a short time to index a newly committed workflow. Poll the
+# Actions workflow list and use the numeric workflow id instead of relying on
+# filename dispatch immediately after the commit.
+$Workflow = $null
+$WorkflowApiVisible = $true
+
+for ($wfTry = 1; $wfTry -le 18 -and $null -eq $Workflow; $wfTry++) {
+    try {
+        $WorkflowList = Invoke-GH -Method GET -Uri "$RepoApi/actions/workflows?per_page=100" -Allow404
+    }
+    catch {
+        $WorkflowApiVisible = $false
+        break
+    }
+
+    if ($null -eq $WorkflowList) {
+        $WorkflowApiVisible = $false
+        break
+    }
+
+    $Workflow = @(
+        $WorkflowList.workflows |
+        Where-Object {
+            $_.path -eq $WorkflowPath -or
+            $_.name -eq $(if ($Mode -eq 'signed') { 'iOS Signed IPA' } else { 'iOS Cloud Build' })
+        } |
+        Select-Object -First 1
+    )
+
+    if ($Workflow.Count -gt 0) {
+        $Workflow = $Workflow[0]
+        break
+    }
+
+    Write-Host ("      Workflow GitHub tarafinda indeksleniyor... deneme $wfTry/18")
+    Start-Sleep -Seconds 5
+}
+
+if (-not $WorkflowApiVisible) {
+    Write-Host ''
+    Write-Host '[HATA] GitHub Actions API bu token ile erisilebilir degil.' -ForegroundColor Red
+    Write-Host 'Fine-grained token kullaniyorsan cobra repository icin:'
+    Write-Host '  Actions  -> Read and write'
+    Write-Host '  Contents -> Read and write'
+    Write-Host '  Workflows -> Read and write'
+    Write-Host ''
+    Write-Host 'Workflow dosyasi repositoryde mevcut; sorun Actions API yetkisi veya repository Actions ayaridir.'
+    Start-Process "https://github.com/$Owner/$RepoName/settings/actions"
+    exit 41
+}
+
+if ($null -eq $Workflow -or [string]::IsNullOrWhiteSpace([string]$Workflow.id)) {
+    Write-Host ''
+    Write-Host '[HATA] Workflow dosyasi repositoryde var fakat GitHub Actions henuz workflow olarak tanimadi.' -ForegroundColor Red
+    Write-Host ('Dosya: ' + $WorkflowPath)
+    Write-Host ('Default branch: ' + $Branch)
+    Write-Host 'GitHub Actions sayfasi aciliyor.'
+    Start-Process "https://github.com/$Owner/$RepoName/actions"
+    exit 42
+}
+
+$WorkflowId = [string]$Workflow.id
+Write-Host ('      Workflow bulundu. ID: ' + $WorkflowId) -ForegroundColor Green
+
+# If GitHub reports a disabled workflow, enable it automatically.
+if ($Workflow.state -and $Workflow.state -ne 'active') {
+    Write-Host ('      Workflow durumu: ' + $Workflow.state + ' - etkinlestiriliyor...') -ForegroundColor Yellow
+    try {
+        Invoke-GH -Method PUT -Uri "$RepoApi/actions/workflows/$WorkflowId/enable" | Out-Null
+        Start-Sleep -Seconds 2
+    }
+    catch {
+        Write-Host '[HATA] Workflow etkinlestirilemedi. Token Actions: Read and write olmali.' -ForegroundColor Red
+        exit 43
+    }
+}
+
+Write-Host '      GitHub macOS iPhone build baslatiliyor...'
 $DispatchAt = [DateTime]::UtcNow.AddMinutes(-1)
-Invoke-GH -Method POST -Uri "$RepoApi/actions/workflows/$WorkflowFile/dispatches" -Body @{ ref = $Branch } | Out-Null
+
+try {
+    Invoke-GH -Method POST -Uri "$RepoApi/actions/workflows/$WorkflowId/dispatches" -Body @{ ref = $Branch } | Out-Null
+}
+catch {
+    Write-Host ''
+    Write-Host '[HATA] Workflow tetiklenemedi.' -ForegroundColor Red
+    Write-Host 'Fine-grained token icin Actions: Read and write gereklidir.'
+    Write-Host ('Workflow ID: ' + $WorkflowId)
+    Write-Host ('Branch: ' + $Branch)
+    throw
+}
+
 Write-Host '      Workflow tetiklendi.' -ForegroundColor Green
 
 Write-Host '[6/7] Build sonucu bekleniyor...'
 $Run = $null
-for ($findTry = 0; $findTry -lt 24 -and $null -eq $Run; $findTry++) {
+for ($findTry = 0; $findTry -lt 30 -and $null -eq $Run; $findTry++) {
     Start-Sleep -Seconds 5
-    $Runs = Invoke-GH -Method GET -Uri "$RepoApi/actions/workflows/$WorkflowFile/runs?event=workflow_dispatch&branch=$Branch&per_page=10"
-    $Run = @($Runs.workflow_runs | Where-Object { ([DateTime]$_.created_at) -ge $DispatchAt } | Sort-Object created_at -Descending | Select-Object -First 1)
+    $Runs = Invoke-GH -Method GET -Uri "$RepoApi/actions/workflows/$WorkflowId/runs?event=workflow_dispatch&branch=$Branch&per_page=10"
+    $Run = @(
+        $Runs.workflow_runs |
+        Where-Object { ([DateTime]$_.created_at) -ge $DispatchAt } |
+        Sort-Object created_at -Descending |
+        Select-Object -First 1
+    )
     if ($Run.Count -gt 0) { $Run = $Run[0] } else { $Run = $null }
 }
 if ($null -eq $Run) { throw 'Baslatilan GitHub Actions build kaydi bulunamadi.' }
