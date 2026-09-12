@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=12/D Dil Programı
+Comment=A1-C2 İngilizce öğrenme uygulaması
+Exec=12d-dil-programi
+Icon=12d-dil-programi
+Terminal=false
+Categories=Education;Languages;
+StartupNotify=true
